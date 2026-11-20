@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Eye, EyeOff, ArrowRight, Loader, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Loader, CheckCircle, XCircle, Flame, Tag, Package, Star, Bike } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import toast from 'react-hot-toast';
 
 const STRENGTH_LEVELS = ['Too short', 'Weak', 'Fair', 'Good', 'Strong'];
 const STRENGTH_COLORS = ['#4a4030', '#ef4444', '#f97316', '#eab308', '#22c55e'];
@@ -38,7 +40,10 @@ export default function RegisterPage() {
     e.preventDefault();
     if (form.password !== form.confirm) return;
     const result = await register(form);
-    if (result.success) navigate('/');
+    if (result.success) {
+      toast.success('Account created! A verification link has been dispatched to your email.');
+      navigate('/verify-email');
+    }
   };
 
   const update = (field, val) => setForm(prev => ({ ...prev, [field]: val }));
@@ -60,22 +65,26 @@ export default function RegisterPage() {
         </div>
         <div className="relative">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🪔</span>
+            <div className="w-10 h-10 rounded-xl bg-[#c9933a]/15 border border-[#c9933a]/30 flex items-center justify-center text-[#c9933a]">
+              <Flame className="w-5 h-5 fill-[#c9933a]/20" />
+            </div>
             <div>
               <div className="font-display font-bold text-xl text-gold-gradient" style={{ fontFamily: 'Playfair Display, serif' }}>SAVORIA</div>
               <div className="text-[0.6rem] tracking-[0.2em] text-[#7a6b4e] uppercase">Fine Indian Dining</div>
             </div>
           </div>
         </div>
-        <div className="relative space-y-6">
+        <div className="relative space-y-5">
           {[
-            { icon: '🎁', text: '20% off your first order' },
-            { icon: '📦', text: 'Track orders in real-time' },
-            { icon: '⭐', text: 'Exclusive member offers' },
-            { icon: '🛵', text: 'Fast 30-minute delivery' },
-          ].map(perk => (
-            <div key={perk.icon} className="flex items-center gap-3">
-              <span className="text-2xl">{perk.icon}</span>
+            { Icon: Tag, text: 'Promotional discounts on selected carte' },
+            { Icon: Package, text: 'Track orders live from kitchen to table' },
+            { Icon: Star, text: 'Access to exclusive tasting events' },
+            { Icon: Bike, text: 'Express 30-minute delivery dispatch' },
+          ].map((perk, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#c9933a]/15 border border-[#c9933a]/30 flex items-center justify-center text-[#c9933a]">
+                <perk.Icon size={16} />
+              </div>
               <span className="text-[#f8f0e3]/80 text-sm">{perk.text}</span>
             </div>
           ))}
@@ -87,7 +96,9 @@ export default function RegisterPage() {
         <div className="w-full max-w-md py-8" ref={formRef}>
           <div className="mb-8">
             <div className="lg:hidden flex items-center gap-2 mb-6">
-              <span className="text-xl">🪔</span>
+              <div className="w-8 h-8 rounded-lg bg-[#c9933a]/15 border border-[#c9933a]/30 flex items-center justify-center text-[#c9933a]">
+                <Flame className="w-4 h-4 fill-[#c9933a]/20" />
+              </div>
               <span className="font-display font-bold text-lg text-gold-gradient" style={{ fontFamily: 'Playfair Display, serif' }}>SAVORIA</span>
             </div>
             <h1 className="font-display font-bold text-3xl text-[#f8f0e3] mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
@@ -175,7 +186,7 @@ export default function RegisterPage() {
                 />
                 {form.confirm && (
                   <span className={`absolute right-3 top-1/2 -translate-y-1/2 ${form.password === form.confirm ? 'text-green-400' : 'text-red-400'}`}>
-                    {form.password === form.confirm ? <CheckCircle size={15} /> : '✗'}
+                    {form.password === form.confirm ? <CheckCircle size={15} /> : <XCircle size={15} />}
                   </span>
                 )}
               </div>
@@ -202,6 +213,18 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#2a2416]" />
+            </div>
+            <span className="relative bg-[#0a0804] px-4 text-[11px] text-[#7a6b4e] uppercase tracking-wider font-semibold">
+              Or sign up with
+            </span>
+          </div>
+
+          <GoogleSignInButton text="Sign up with Google" onSuccessRedirect="/" />
 
           <p className="text-sm text-center text-[#7a6b4e] mt-6">
             Already have an account?{' '}

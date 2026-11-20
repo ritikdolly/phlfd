@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { gsap } from 'gsap';
-import { Search, Grid, List, X, Leaf, Flame, ChevronDown } from 'lucide-react';
+import { Search, Leaf, Flame, Tag, RefreshCw, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { menuService } from '../api/services';
 import { MENU_ITEMS, CATEGORIES } from '../data/data';
 import FoodCard from '../components/FoodCard';
 
@@ -10,253 +10,241 @@ export default function MenuPage() {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'all');
   const [vegOnly, setVegOnly] = useState(false);
+  const [nonVegOnly, setNonVegOnly] = useState(false);
   const [spicyOnly, setSpicyOnly] = useState(false);
+  const [discountOnly, setDiscountOnly] = useState(false);
+  const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sortBy, setSortBy] = useState('default');
   const [layout, setLayout] = useState('grid');
-  const headerRef = useRef(null);
-  const gridRef = useRef(null);
 
-  // Header animation
+  // Backend state
+  const [backendItems, setBackendItems] = useState([]);
+  const [backendCategories, setBackendCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load menu & categories
+  const fetchMenu = async () => {
+    try {
+      setLoading(true);
+      const [menuRes, catRes] = await Promise.all([
+        menuService.getAllMenuItems().catch(() => null),
+        menuService.getCategories().catch(() => null),
+      ]);
+
+      if (menuRes?.data && Array.isArray(menuRes.data) && menuRes.data.length > 0) {
+        setBackendItems(menuRes.data);
+      } else {
+        setBackendItems(MENU_ITEMS);
+      }
+
+      if (catRes?.data && Array.isArray(catRes.data) && catRes.data.length > 0) {
+        setBackendCategories(catRes.data);
+      } else {
+        setBackendCategories(CATEGORIES);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.fromTo(headerRef.current,
-        { y: -30, autoAlpha: 0 },
-        { y: 0, autoAlpha: 1, duration: 0.8, ease: 'power3.out', delay: 0.1 }
-      );
-    });
-    return () => ctx.revert();
+    fetchMenu();
   }, []);
 
-  // Grid animation on filter change
-  const animateGrid = () => {
-    if (!gridRef.current) return;
-    gsap.fromTo(gridRef.current.children,
-      { y: 20, autoAlpha: 0 },
-      { y: 0, autoAlpha: 1, duration: 0.4, stagger: 0.04, ease: 'power2.out' }
-    );
-  };
-
+  // Filter & Sort
   const filteredItems = useMemo(() => {
-    let items = MENU_ITEMS;
-    if (activeCategory !== 'all') items = items.filter(i => i.category === activeCategory);
+    let result = [...backendItems];
+
     if (query.trim()) {
       const q = query.toLowerCase();
-      items = items.filter(i =>
-        i.name.toLowerCase().includes(q) ||
-        i.description.toLowerCase().includes(q) ||
-        i.tags.some(t => t.toLowerCase().includes(q))
+      result = result.filter(
+        (i) => i.name?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q)
       );
     }
-    if (vegOnly) items = items.filter(i => i.isVeg);
-    if (spicyOnly) items = items.filter(i => i.isSpicy);
-    if (sortBy === 'price-asc') items = [...items].sort((a, b) => a.price - b.price);
-    if (sortBy === 'price-desc') items = [...items].sort((a, b) => b.price - a.price);
-    if (sortBy === 'rating') items = [...items].sort((a, b) => b.rating - a.rating);
-    if (sortBy === 'popular') items = [...items].sort((a, b) => b.reviews - a.reviews);
-    return items;
-  }, [activeCategory, query, vegOnly, spicyOnly, sortBy]);
 
-  useEffect(() => {
-    animateGrid();
-  }, [filteredItems]);
+    if (activeCategory !== 'all') {
+      result = result.filter(
+        (i) => (i.categorySlug || i.category || '').toLowerCase() === activeCategory.toLowerCase()
+      );
+    }
 
-  const handleCategoryChange = (catId) => {
-    setActiveCategory(catId);
-    setSearchParams(catId === 'all' ? {} : { category: catId });
-  };
+    if (vegOnly) result = result.filter((i) => (i.isVeg !== undefined ? Boolean(i.isVeg) : (i.veg !== undefined ? Boolean(i.veg) : true)));
+    if (nonVegOnly) result = result.filter((i) => !(i.isVeg !== undefined ? Boolean(i.isVeg) : (i.veg !== undefined ? Boolean(i.veg) : true)));
+    if (spicyOnly) result = result.filter((i) => i.isSpicy);
+    if (discountOnly) {
+      result = result.filter((i) => {
+        const pct = Number(i.discountPercentage || 0);
+        return i.discountActive !== false && pct > 0;
+      });
+    }
+    if (featuredOnly) {
+      result = result.filter((i) => i.isChefSpecial || i.isBestseller);
+    }
 
-  const clearFilters = () => {
-    setQuery('');
-    setActiveCategory('all');
-    setVegOnly(false);
-    setSpicyOnly(false);
-    setSortBy('default');
-    setSearchParams({});
-  };
+    if (sortBy === 'price-low') {
+      result.sort((a, b) => Number(a.price) - Number(b.price));
+    } else if (sortBy === 'price-high') {
+      result.sort((a, b) => Number(b.price) - Number(a.price));
+    } else if (sortBy === 'rating') {
+      result.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+    } else if (sortBy === 'discount') {
+      result.sort((a, b) => Number(b.discountPercentage || 0) - Number(a.discountPercentage || 0));
+    }
 
-  const hasFilters = query || activeCategory !== 'all' || vegOnly || spicyOnly || sortBy !== 'default';
+    return result;
+  }, [backendItems, query, activeCategory, vegOnly, nonVegOnly, spicyOnly, discountOnly, featuredOnly, sortBy]);
 
   return (
-    <div className="min-h-screen pt-20">
-      {/* Page Header */}
-      <div
-        ref={headerRef}
-        className="relative py-16 overflow-hidden"
-        style={{ background: 'linear-gradient(to bottom, #111008, #0a0804)' }}
-      >
-        <div className="absolute inset-0">
-          <div
-            className="absolute inset-x-0 top-0 h-px"
-            style={{ background: 'linear-gradient(90deg, transparent, rgba(201,147,58,0.3), transparent)' }}
-          />
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="section-label justify-center mb-4">
-            <span className="spice-dot" />
-            Our Menu
-            <span className="spice-dot" />
-          </div>
-          <h1
-            className="font-display font-bold text-4xl md:text-6xl text-[#f8f0e3] mb-4"
-            style={{ fontFamily: 'Playfair Display, serif' }}
-          >
-            The <span className="text-gold-gradient">Savoria</span> Collection
-          </h1>
-          <p className="text-[#7a6b4e] text-lg max-w-xl mx-auto">
-            {MENU_ITEMS.length} dishes crafted with the finest ingredients from across India
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#0a0804] text-[#f8f0e3] pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-8 text-center space-y-3">
+        <span className="px-3.5 py-1 rounded-full text-xs font-semibold bg-[#2a2416] text-[#d4af37] border border-[#d4af37]/30 tracking-widest uppercase">
+          Culinary Catalog
+        </span>
+        <h1 className="text-4xl sm:text-5xl font-serif font-bold tracking-wide">
+          Savoria Restaurant Menu
+        </h1>
+        <p className="text-sm sm:text-base text-[#a8997c] max-w-2xl mx-auto">
+          Explore artisanal dishes crafted with authentic spices, fresh ingredients, and exclusive chef specials.
+        </p>
       </div>
 
-      {/* Sticky filters */}
-      <div
-        className="sticky top-[72px] z-40 border-b border-[#2e2a1e]"
-        style={{ background: 'rgba(10,8,4,0.95)', backdropFilter: 'blur(20px)' }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* Search + Controls row */}
-          <div className="flex gap-3 items-center mb-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7a6b4e]" />
+      <div className="max-w-7xl mx-auto">
+        {/* Search & Quick Controls */}
+        <div className="bg-[#141008] border border-[#2a2416] rounded-2xl p-4 sm:p-5 mb-8 space-y-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            {/* Search Input */}
+            <div className="relative w-full md:max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a8997c]" />
               <input
                 type="text"
-                placeholder="Search dishes, ingredients..."
                 value={query}
-                onChange={e => setQuery(e.target.value)}
-                className="input-dark pl-10 pr-10 py-3 text-sm"
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by dish name, spice, or ingredients..."
+                className="w-full bg-[#0a0804] border border-[#2a2416] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#f8f0e3] placeholder-[#7a6b4e] focus:border-[#d4af37] outline-none"
               />
-              {query && (
-                <button
-                  onClick={() => setQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a6b4e] hover:text-[#f8f0e3]"
-                >
-                  <X size={14} />
-                </button>
-              )}
             </div>
 
-            {/* Sort */}
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                className="input-dark text-sm py-3 pl-4 pr-8 appearance-none cursor-pointer"
-                style={{ backgroundImage: 'none', minWidth: '140px' }}
-              >
-                <option value="default">Sort: Default</option>
-                <option value="rating">Top Rated</option>
-                <option value="popular">Most Popular</option>
-                <option value="price-asc">Price: Low–High</option>
-                <option value="price-desc">Price: High–Low</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a6b4e] pointer-events-none" />
-            </div>
-
-            {/* Layout toggle */}
-            <div className="hidden md:flex glass rounded-xl overflow-hidden">
+            {/* Filter Pills */}
+            <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
               <button
-                onClick={() => setLayout('grid')}
-                className={`p-2.5 transition-colors ${layout === 'grid' ? 'bg-[rgba(201,147,58,0.15)] text-[#c9933a]' : 'text-[#7a6b4e] hover:text-[#f8f0e3]'}`}
-              >
-                <Grid size={16} />
-              </button>
-              <button
-                onClick={() => setLayout('list')}
-                className={`p-2.5 transition-colors ${layout === 'list' ? 'bg-[rgba(201,147,58,0.15)] text-[#c9933a]' : 'text-[#7a6b4e] hover:text-[#f8f0e3]'}`}
-              >
-                <List size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Categories + Quick filters */}
-          <div className="flex items-center gap-3 overflow-x-auto pb-1 horizontal-scroll">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryChange(cat.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
-                  activeCategory === cat.id
-                    ? `${cat.colorClass} scale-105`
-                    : 'border-[#2e2a1e] text-[#7a6b4e] hover:border-[#c9933a]/30 hover:text-[#f8f0e3]'
+                onClick={() => { setVegOnly(!vegOnly); if (!vegOnly) setNonVegOnly(false); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                  vegOnly ? 'bg-green-950/70 text-green-300 border-green-500/60 ring-1 ring-green-500/30' : 'bg-[#1a140a] text-[#a8997c] border-[#2a2416] hover:border-green-500/30'
                 }`}
               >
-                <span>{cat.icon}</span>
-                {cat.label}
+                <div className="w-3.5 h-3.5 rounded-sm border-2 border-green-500 flex items-center justify-center bg-black/60">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                </div>
+                <span>Veg</span>
+              </button>
+
+              <button
+                onClick={() => { setNonVegOnly(!nonVegOnly); if (!nonVegOnly) setVegOnly(false); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                  nonVegOnly ? 'bg-red-950/70 text-red-300 border-red-500/60 ring-1 ring-red-500/30' : 'bg-[#1a140a] text-[#a8997c] border-[#2a2416] hover:border-red-500/30'
+                }`}
+              >
+                <div className="w-3.5 h-3.5 rounded-sm border-2 border-red-500 flex items-center justify-center bg-black/60">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                </div>
+                <span>Non-Veg</span>
+              </button>
+
+              <button
+                onClick={() => setDiscountOnly(!discountOnly)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                  discountOnly ? 'bg-red-950/60 text-red-300 border-red-500/40' : 'bg-[#1a140a] text-[#a8997c] border-[#2a2416]'
+                }`}
+              >
+                <Tag size={13} className={discountOnly ? 'text-red-400' : ''} /> On Offer %
+              </button>
+
+              <button
+                onClick={() => setFeaturedOnly(!featuredOnly)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                  featuredOnly ? 'bg-amber-950/60 text-[#d4af37] border-[#d4af37]/40' : 'bg-[#1a140a] text-[#a8997c] border-[#2a2416]'
+                }`}
+              >
+                <Sparkles size={13} className={featuredOnly ? 'text-[#d4af37]' : ''} /> Chef's Picks
+              </button>
+
+              <button
+                onClick={() => setSpicyOnly(!spicyOnly)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                  spicyOnly ? 'bg-orange-950/60 text-orange-300 border-orange-500/40' : 'bg-[#1a140a] text-[#a8997c] border-[#2a2416]'
+                }`}
+              >
+                <Flame size={13} className={spicyOnly ? 'text-orange-400' : ''} /> Spicy
+              </button>
+
+              {/* Sorting */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[#1a140a] border border-[#2a2416] rounded-xl px-3 py-1.5 text-xs text-[#f8f0e3] focus:border-[#d4af37] outline-none"
+              >
+                <option value="default">Sort: Recommended</option>
+                <option value="discount">Highest Discount</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="rating">Top Rated</option>
+              </select>
+
+              <button
+                onClick={fetchMenu}
+                className="p-2 rounded-xl bg-[#1a140a] border border-[#2a2416] text-[#d4af37] hover:bg-[#d4af37]/10 transition-all"
+                title="Refresh Menu"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          </div>
+
+          {/* Categories Bar */}
+          <div className="flex gap-2 overflow-x-auto pt-2 pb-1 scrollbar-none border-t border-[#2a2416]">
+            <button
+              onClick={() => setActiveCategory('all')}
+              className={`px-4 py-2 rounded-xl text-xs font-medium tracking-wide whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                activeCategory === 'all'
+                  ? 'bg-[#d4af37] text-black font-semibold shadow'
+                  : 'bg-[#1a140a] text-[#a8997c] hover:text-[#f8f0e3] hover:bg-[#2a2416]'
+              }`}
+            >
+              <UtensilsCrossed size={12} />
+              <span>All Menu ({backendItems.length})</span>
+            </button>
+            {backendCategories.map((c) => (
+              <button
+                key={c.id || c.slug}
+                onClick={() => setActiveCategory(c.slug)}
+                className={`px-4 py-2 rounded-xl text-xs font-medium tracking-wide whitespace-nowrap transition-all ${
+                  activeCategory === c.slug
+                    ? 'bg-[#d4af37] text-black font-semibold shadow'
+                    : 'bg-[#1a140a] text-[#a8997c] hover:text-[#f8f0e3] hover:bg-[#2a2416]'
+                }`}
+              >
+                {c.icon || ''} {c.name}
               </button>
             ))}
-
-            <div className="w-px h-6 bg-[#2e2a1e] mx-1 flex-shrink-0" />
-
-            <button
-              onClick={() => setVegOnly(!vegOnly)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
-                vegOnly
-                  ? 'bg-green-500/15 text-green-400 border-green-500/30'
-                  : 'border-[#2e2a1e] text-[#7a6b4e] hover:border-green-500/30'
-              }`}
-            >
-              <Leaf size={12} /> Veg Only
-            </button>
-
-            <button
-              onClick={() => setSpicyOnly(!spicyOnly)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
-                spicyOnly
-                  ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
-                  : 'border-[#2e2a1e] text-[#7a6b4e] hover:border-orange-500/30'
-              }`}
-            >
-              <Flame size={12} /> Spicy
-            </button>
-
-            {hasFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 px-3 py-2 rounded-full text-xs text-red-400 border border-red-500/20 hover:bg-red-500/10 whitespace-nowrap transition-colors"
-              >
-                <X size={12} /> Clear
-              </button>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Results count */}
-        <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-[#7a6b4e]">
-            {filteredItems.length === 0 ? 'No dishes found' : `${filteredItems.length} dish${filteredItems.length !== 1 ? 'es' : ''}`}
-            {activeCategory !== 'all' && (
-              <span className="ml-1">in <span className="text-[#c9933a]">{CATEGORIES.find(c => c.id === activeCategory)?.label}</span></span>
-            )}
-          </p>
-          {hasFilters && (
-            <span className="badge badge-gold">Filtered</span>
-          )}
-        </div>
-
-        {filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="text-5xl mb-4">🔍</div>
-            <h3 className="font-display text-2xl text-[#7a6b4e] mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-              No dishes found
-            </h3>
-            <p className="text-sm text-[#4a4030] mb-6">Try adjusting your search or filters</p>
-            <button onClick={clearFilters} className="btn-outline">Clear Filters</button>
+        {/* Food Items Grid */}
+        {loading ? (
+          <div className="py-24 text-center text-[#d4af37]">
+            <RefreshCw size={32} className="animate-spin mx-auto mb-3" />
+            <p className="text-sm font-medium">Loading delicious items...</p>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="bg-[#141008] border border-[#2a2416] rounded-2xl py-20 text-center text-[#a8997c]">
+            <Search size={40} className="text-[#3a3020] mx-auto mb-3" />
+            <h3 className="text-lg font-serif text-[#f8f0e3] mb-1">No Matching Dishes Found</h3>
+            <p className="text-xs">Try adjusting your search keywords, category, or discount filters.</p>
           </div>
         ) : (
-          <div
-            ref={gridRef}
-            className={
-              layout === 'grid'
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
-                : 'grid grid-cols-1 md:grid-cols-2 gap-4'
-            }
-          >
-            {filteredItems.map(item => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredItems.map((item) => (
               <FoodCard key={item.id} item={item} layout={layout} />
             ))}
           </div>

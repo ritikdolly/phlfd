@@ -138,17 +138,9 @@ export default function CartPage() {
                   </div>
                 )}
                 {couponError && <p className="text-red-400 text-xs mt-2">{couponError}</p>}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {['SAVORIA20', 'FLAT200', 'WELCOME50'].map(code => (
-                    <button
-                      key={code}
-                      onClick={() => { setCouponInput(code); }}
-                      className="font-mono text-xs px-2.5 py-1 glass-gold rounded-lg text-[#c9933a] hover:opacity-80 transition-opacity"
-                    >
-                      {code}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-[11px] text-[#7a6b4e] mt-2">
+                  Have an active promotional promo code? Enter it above to apply instant savings.
+                </p>
               </div>
             </div>
 

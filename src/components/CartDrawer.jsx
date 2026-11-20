@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Plus, Minus, ArrowRight, Users } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
+import { VegBadge } from './FoodCard';
+import { getImageUrl, DEFAULT_FOOD_IMAGE } from '../utils/imageUrl';
 
 export default function CartDrawer({ open, onClose }) {
   const drawerRef = useRef(null);
@@ -82,17 +84,21 @@ export default function CartDrawer({ open, onClose }) {
             items.map((item) => (
               <div key={item.cartId} className="flex gap-4 p-4 card-dark">
                 <img
-                  src={item.image}
+                  src={getImageUrl(item.image)}
                   alt={item.name}
-                  className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                  onError={(e) => { e.target.src = DEFAULT_FOOD_IMAGE; }}
+                  className="w-20 h-20 rounded-xl object-cover flex-shrink-0 bg-[#16120a]"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <div className={`w-3 h-3 rounded-sm border flex items-center justify-center ${item.isVeg ? 'border-green-500' : 'border-red-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? 'bg-green-500' : 'bg-red-500'}`} />
-                        </div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <VegBadge isVeg={item.isVeg} className="text-[9px] px-1.5 py-0" />
+                        {item.servingInfo && (
+                          <span className="text-[10px] text-[#d4af37] flex items-center gap-0.5">
+                            <Users size={9} /> {item.servingInfo}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-medium text-[#f8f0e3] leading-tight">{item.name}</p>
                       {item.selectedOptions && (

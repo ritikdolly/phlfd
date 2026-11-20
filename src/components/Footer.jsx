@@ -9,10 +9,12 @@ const FOOTER_LINKS = {
     { label: 'Our Story', to: '/story' },
     { label: 'Order Tracking', to: '/track' },
   ],
-  'Categories': CATEGORIES.filter(c => c.id !== 'all').slice(0, 5).map(c => ({
-    label: c.label,
-    to: `/menu?category=${c.id}`,
-  })),
+  'Categories': [
+    { label: 'Chef Recommendations', to: '/menu?filter=featured' },
+    { label: 'Promotional Offers', to: '/menu?filter=offers' },
+    { label: 'Vegetarian Specialties', to: '/menu?filter=veg' },
+    { label: 'Full Carte du Jour', to: '/menu' },
+  ],
   'Account': [
     { label: 'Sign In', to: '/login' },
     { label: 'Register', to: '/register' },
@@ -61,7 +63,9 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl">🪔</span>
+              <div className="w-9 h-9 rounded-xl bg-[#c9933a]/15 border border-[#c9933a]/30 flex items-center justify-center text-[#c9933a]">
+                <Flame className="w-5 h-5 fill-[#c9933a]/20" />
+              </div>
               <div>
                 <div
                   className="font-display font-bold text-xl text-gold-gradient leading-tight"

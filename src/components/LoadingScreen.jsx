@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
+import { Flame } from 'lucide-react';
 
 export default function LoadingScreen({ onComplete }) {
   const containerRef = useRef(null);
@@ -58,8 +59,8 @@ export default function LoadingScreen({ onComplete }) {
       <div className="relative z-10 flex flex-col items-center gap-6">
         {/* Logo */}
         <div ref={logoRef}>
-          <div className="text-7xl mb-2" style={{ filter: 'drop-shadow(0 0 30px rgba(201,147,58,0.5))' }}>
-            🪔
+          <div className="w-20 h-20 rounded-3xl bg-[#d4af37]/15 border-2 border-[#d4af37]/40 flex items-center justify-center text-[#d4af37] shadow-[0_0_50px_rgba(201,147,58,0.4)] mb-2">
+            <Flame className="w-10 h-10 fill-[#d4af37]/30" />
           </div>
         </div>
 

@@ -1,9 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, Play, Star, ChevronDown, Award, UtensilsCrossed } from 'lucide-react';
-import { FEATURED_DISHES, BESTSELLERS, TESTIMONIALS, MARQUEE_ITEMS, OFFERS, AWARDS, STORY_CHAPTERS } from '../data/data';
+import { 
+  ArrowRight, Play, Star, ChevronDown, Award, UtensilsCrossed, 
+  Sparkles, Clock, Wine, HeartHandshake, ShieldCheck 
+} from 'lucide-react';
+import { MARQUEE_ITEMS, OFFERS, AWARDS, STORY_CHAPTERS } from '../data/data';
+import { menuService } from '../api/services';
 import FoodCard from '../components/FoodCard';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -31,7 +35,7 @@ function Marquee({ items, direction = 1, speed = 30 }) {
     <div className="overflow-hidden whitespace-nowrap py-4">
       <div ref={trackRef} className="inline-flex gap-8">
         {items.map((item, i) => (
-          <span key={i} className="text-sm font-medium tracking-widest text-[#7a6b4e] uppercase">
+          <span key={i} className="text-sm font-medium tracking-widest text-[#7a6b4e] uppercase flex items-center gap-2">
             {item}
           </span>
         ))}
@@ -71,8 +75,37 @@ export default function HomePage() {
   const heroRef = useRef(null);
   const featuredRef = useRef(null);
   const storyRef = useRef(null);
-  const testimonialsRef = useRef(null);
+  const diningExpRef = useRef(null);
   const offersRef = useRef(null);
+
+  const [featuredDishes, setFeaturedDishes] = useState([]);
+  const [bestsellerDishes, setBestsellerDishes] = useState([]);
+  const [loadingDishes, setLoadingDishes] = useState(true);
+
+  // Fetch real menu data from Spring Boot REST APIs
+  useEffect(() => {
+    const fetchHomeMenu = async () => {
+      try {
+        setLoadingDishes(true);
+        const [featuredRes, allRes] = await Promise.all([
+          menuService.getFeaturedItems().catch(() => ({ data: [] })),
+          menuService.getAllItems().catch(() => ({ data: [] })),
+        ]);
+
+        const featured = featuredRes?.data || [];
+        const allItems = allRes?.data || [];
+
+        setFeaturedDishes(featured.length > 0 ? featured : allItems.slice(0, 6));
+        setBestsellerDishes(allItems.filter((item) => item.isBestseller).slice(0, 6));
+      } catch (err) {
+        console.warn('Notice: Home menu loaded with default database state', err.message);
+      } finally {
+        setLoadingDishes(false);
+      }
+    };
+
+    fetchHomeMenu();
+  }, []);
 
   // Hero animation
   useEffect(() => {
@@ -125,7 +158,7 @@ export default function HomePage() {
   // Section scroll reveals
   useSectionReveal(featuredRef);
   useSectionReveal(storyRef);
-  useSectionReveal(testimonialsRef);
+  useSectionReveal(diningExpRef);
   useSectionReveal(offersRef);
 
   // Stats counter animation
@@ -221,9 +254,9 @@ export default function HomePage() {
           {/* Hero stats */}
           <div className="hero-cta flex items-center gap-8 text-center">
             {[
-              { val: 4.9, label: 'Rating', suffix: '★', isFloat: true },
-              { val: 12000, label: 'Happy Diners', suffix: '+' },
-              { val: 3, label: 'Awards Won', suffix: '' },
+              { val: 4.9, label: 'Patron Rating', suffix: ' / 5', isFloat: true },
+              { val: 12000, label: 'Feasts Served', suffix: '+' },
+              { val: 3, label: 'Culinary Honors', suffix: '' },
             ].map(({ val, label, suffix, isFloat }) => (
               <div key={label} className="px-6 border-r border-[#2e2a1e] last:border-0">
                 <div className="font-display text-2xl font-bold text-[#c9933a]" style={{ fontFamily: 'Playfair Display, serif' }}>
@@ -244,11 +277,11 @@ export default function HomePage() {
         </div>
         <div className="hero-badge absolute bottom-40 right-8 lg:right-20 glass rounded-2xl p-3 text-center hidden lg:block">
           <Star size={20} className="text-[#c9933a] mx-auto mb-1 fill-current" />
-          <div className="text-xs font-semibold text-[#f8f0e3]">4.9/5</div>
-          <div className="text-[0.6rem] text-[#7a6b4e]">12K+ Reviews</div>
+          <div className="text-xs font-semibold text-[#f8f0e3]">4.9 / 5.0</div>
+          <div className="text-[0.6rem] text-[#7a6b4e]">Verified Reviews</div>
         </div>
 
-        {/* Floating dish */}
+        {/* Floating signature presentation */}
         <div className="hero-dish absolute left-8 lg:left-20 bottom-1/3 hidden lg:block">
           <div
             className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#c9933a]/30 shadow-2xl"
@@ -257,8 +290,8 @@ export default function HomePage() {
             <img src="https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=200&q=80" alt="Dish" className="w-full h-full object-cover" />
           </div>
           <div className="mt-2 text-center">
-            <div className="text-xs font-semibold text-[#c9933a]">Butter Chicken</div>
-            <div className="text-[0.6rem] text-[#7a6b4e]">Bestseller</div>
+            <div className="text-xs font-semibold text-[#c9933a]">Artisanal Curry</div>
+            <div className="text-[0.6rem] text-[#7a6b4e]">Master Kitchen</div>
           </div>
         </div>
 
@@ -274,7 +307,7 @@ export default function HomePage() {
         <Marquee items={MARQUEE_ITEMS} />
       </div>
 
-      {/* ═══ FEATURED DISHES ═══ */}
+      {/* ═══ FEATURED DISHES (DATABASE-DRIVEN) ═══ */}
       <section ref={featuredRef} className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div data-reveal className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
           <div>
@@ -295,11 +328,36 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <div data-reveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {FEATURED_DISHES.map(dish => (
-            <FoodCard key={dish.id} item={dish} />
-          ))}
-        </div>
+        {loadingDishes ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="bg-[#141008] border border-[#2a2416] rounded-2xl h-80 animate-pulse p-4">
+                <div className="w-full h-44 bg-[#2a2416] rounded-xl mb-4" />
+                <div className="h-4 bg-[#2a2416] rounded w-3/4 mb-2" />
+                <div className="h-3 bg-[#2a2416] rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : featuredDishes.length > 0 ? (
+          <div data-reveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featuredDishes.map((dish) => (
+              <FoodCard key={dish.id} item={dish} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-[#141008] border border-[#2a2416] rounded-3xl">
+            <UtensilsCrossed size={48} className="text-[#3a3020] mx-auto mb-4" />
+            <h3 className="font-serif font-bold text-lg text-[#f8f0e3] mb-1">
+              Curating Seasonal Specialties
+            </h3>
+            <p className="text-sm text-[#7a6b4e] max-w-md mx-auto mb-6">
+              Our culinary team is currently refining today's signature preparations. Browse our full carte du jour.
+            </p>
+            <Link to="/menu" className="btn-primary text-xs py-3 px-6">
+              Browse Entire Menu
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ═══ STORY SECTION ═══ */}
@@ -372,137 +430,123 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ BESTSELLERS ═══ */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
-          <div>
-            <div className="section-label">
-              <span className="spice-dot" />
-              Most Loved
+      {/* ═══ BESTSELLERS (DATABASE-DRIVEN) ═══ */}
+      {bestsellerDishes.length > 0 && (
+        <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-[#2a2416]/50">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+            <div>
+              <div className="section-label">
+                <span className="spice-dot" />
+                Patron Favorites
+              </div>
+              <h2
+                className="font-display font-bold text-4xl md:text-5xl text-[#f8f0e3]"
+                style={{ fontFamily: 'Playfair Display, serif' }}
+              >
+                Our Bestsellers
+              </h2>
             </div>
-            <h2
-              className="font-display font-bold text-4xl md:text-5xl text-[#f8f0e3]"
-              style={{ fontFamily: 'Playfair Display, serif' }}
-            >
-              Our Bestsellers
-            </h2>
+            <Link to="/menu" className="btn-outline flex-shrink-0">
+              Order Now <ArrowRight size={15} />
+            </Link>
           </div>
-          <Link to="/menu" className="btn-outline flex-shrink-0">
-            Order Now <ArrowRight size={15} />
-          </Link>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {BESTSELLERS.slice(0, 6).map(dish => (
-            <FoodCard key={dish.id} item={dish} />
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {bestsellerDishes.map((dish) => (
+              <FoodCard key={dish.id} item={dish} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* ═══ OFFERS ═══ */}
+      {/* ═══ CURATED EXPERIENCES & OFFERS ═══ */}
       <section ref={offersRef} className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div data-reveal className="text-center mb-12">
           <div className="section-label justify-center">
             <span className="spice-dot" />
-            Exclusive Offers
+            Curated Experiences
             <span className="spice-dot" />
           </div>
           <h2
             className="font-display font-bold text-4xl md:text-5xl text-[#f8f0e3]"
             style={{ fontFamily: 'Playfair Display, serif' }}
           >
-            Savoria <span className="text-gold-gradient">Specials</span>
+            Savoria <span className="text-gold-gradient">Happenings</span>
           </h2>
         </div>
 
-        <div data-reveal className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {OFFERS.map(offer => (
+        <div data-reveal className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {OFFERS.map((offer) => (
             <div
               key={offer.id}
-              className={`relative rounded-3xl p-6 overflow-hidden border border-[#2e2a1e] bg-gradient-to-br ${offer.color} hover:border-[#c9933a]/30 transition-all hover:translate-y-[-4px] cursor-pointer`}
+              className={`relative rounded-3xl p-8 overflow-hidden border border-[#2e2a1e] bg-gradient-to-br ${offer.color} hover:border-[#c9933a]/30 transition-all hover:translate-y-[-4px]`}
             >
               <div className="badge badge-gold mb-4">{offer.badge}</div>
-              <h3 className="font-display text-xl font-bold text-[#f8f0e3] mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
+              <h3 className="font-display text-2xl font-bold text-[#f8f0e3] mb-3" style={{ fontFamily: 'Playfair Display, serif' }}>
                 {offer.title}
               </h3>
-              <p className="text-sm text-[#7a6b4e] mb-4">{offer.description}</p>
-              <div className="flex items-center justify-between">
+              <p className="text-sm text-[#a8997c] mb-6 leading-relaxed">{offer.description}</p>
+              <div className="flex items-center justify-between border-t border-[#2e2a1e]/60 pt-4">
                 <div>
                   <p className="font-bold text-[#c9933a] text-lg">{offer.discount}</p>
-                  <p className="text-xs text-[#4a4030]">Valid: {offer.validTill}</p>
+                  <p className="text-xs text-[#7a6b4e]">{offer.validTill}</p>
                 </div>
-                {offer.code && (
-                  <div className="glass-gold rounded-xl px-3 py-1.5">
-                    <p className="text-xs text-[#7a6b4e]">Code</p>
-                    <p className="font-mono font-bold text-[#c9933a] text-sm">{offer.code}</p>
-                  </div>
-                )}
+                <Link to="/menu" className="btn-outline text-xs py-2 px-4">
+                  Experience
+                </Link>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ═══ TESTIMONIALS ═══ */}
-      <section ref={testimonialsRef} className="py-24" style={{ background: '#080605' }}>
+      {/* ═══ THE DINING AMBIANCE (ELEGANT REAL EXPERIENCE) ═══ */}
+      <section ref={diningExpRef} className="py-24" style={{ background: '#080605' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div data-reveal className="text-center mb-12">
+          <div data-reveal className="text-center mb-16">
             <div className="section-label justify-center">
               <span className="spice-dot" />
-              Testimonials
+              Gastronomic Artistry
               <span className="spice-dot" />
             </div>
             <h2
               className="font-display font-bold text-4xl md:text-5xl text-[#f8f0e3]"
               style={{ fontFamily: 'Playfair Display, serif' }}
             >
-              Voices of Our <span className="text-gold-gradient">Guests</span>
+              The Savoria <span className="text-gold-gradient">Standards</span>
             </h2>
           </div>
 
-          <div data-reveal className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {TESTIMONIALS.slice(0, 3).map(t => (
-              <div key={t.id} className="glass rounded-3xl p-6 border border-[#2e2a1e] hover:border-[#c9933a]/20 transition-all">
-                {/* Stars */}
-                <div className="flex gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={14} className={i < t.rating ? 'fill-[#c9933a] text-[#c9933a]' : 'text-[#2e2a1e]'} />
-                  ))}
-                </div>
-                {/* Quote */}
-                <p className="text-sm text-[#f8f0e3]/80 leading-relaxed mb-5">
-                  "{t.text}"
-                </p>
-                {/* Divider */}
-                <div className="border-t border-[#2e2a1e] pt-4 flex items-center gap-3">
-                  <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover border border-[#c9933a]/20" />
-                  <div>
-                    <p className="text-sm font-semibold text-[#f8f0e3]">{t.name}</p>
-                    <p className="text-xs text-[#7a6b4e]">{t.role}</p>
-                  </div>
-                </div>
+          <div data-reveal className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="glass rounded-3xl p-8 border border-[#2e2a1e] hover:border-[#c9933a]/30 transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-[#c9933a]/10 flex items-center justify-center text-[#c9933a] mb-6">
+                <Wine size={24} />
               </div>
-            ))}
-          </div>
+              <h3 className="text-lg font-serif font-bold text-[#f8f0e3] mb-2">Heritage Cellar & Spirits</h3>
+              <p className="text-sm text-[#7a6b4e] leading-relaxed">
+                Expertly paired beverage programs curated to balance delicate smoke, rich saffron, and pungent roasted spices.
+              </p>
+            </div>
 
-          <div data-reveal className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {TESTIMONIALS.slice(3, 5).map(t => (
-              <div key={t.id} className="glass rounded-3xl p-6 border border-[#2e2a1e] hover:border-[#c9933a]/20 transition-all">
-                <div className="flex gap-1 mb-3">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={14} className={i < t.rating ? 'fill-[#c9933a] text-[#c9933a]' : 'text-[#2e2a1e]'} />
-                  ))}
-                </div>
-                <p className="text-sm text-[#f8f0e3]/80 leading-relaxed mb-4">"{t.text}"</p>
-                <div className="border-t border-[#2e2a1e] pt-4 flex items-center gap-3">
-                  <img src={t.avatar} alt={t.name} className="w-10 h-10 rounded-full object-cover border border-[#c9933a]/20" />
-                  <div>
-                    <p className="text-sm font-semibold text-[#f8f0e3]">{t.name}</p>
-                    <p className="text-xs text-[#7a6b4e]">{t.role}</p>
-                  </div>
-                </div>
+            <div className="glass rounded-3xl p-8 border border-[#2e2a1e] hover:border-[#c9933a]/30 transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-[#c9933a]/10 flex items-center justify-center text-[#c9933a] mb-6">
+                <Sparkles size={24} />
               </div>
-            ))}
+              <h3 className="text-lg font-serif font-bold text-[#f8f0e3] mb-2">Charcoal Clay Ovens</h3>
+              <p className="text-sm text-[#7a6b4e] leading-relaxed">
+                Tandoors fired with select hardwoods reaching 900°F to guarantee authentic char and smoky depth on every skewer.
+              </p>
+            </div>
+
+            <div className="glass rounded-3xl p-8 border border-[#2e2a1e] hover:border-[#c9933a]/30 transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-[#c9933a]/10 flex items-center justify-center text-[#c9933a] mb-6">
+                <ShieldCheck size={24} />
+              </div>
+              <h3 className="text-lg font-serif font-bold text-[#f8f0e3] mb-2">Ethically Sourced Harvest</h3>
+              <p className="text-sm text-[#7a6b4e] leading-relaxed">
+                Every pinch of Kashmiri saffron, Malabar pepper, and organic dairy is directly sourced from multi-generational farming families.
+              </p>
+            </div>
           </div>
         </div>
       </section>
